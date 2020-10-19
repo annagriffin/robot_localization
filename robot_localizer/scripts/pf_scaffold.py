@@ -148,17 +148,19 @@ class ParticleFilter:
         for p in self.particle_cloud:
             x_sum += p.x * p.w
             y_sum += p.y * p.w
-            theta_sin_sum = math.sin(p.theta * p.w)
-            theta_cos_sum = math.cos(p.theta * p.w)
+            theta_sin_sum = math.sin(p.theta) * p.w
+            theta_cos_sum = math.cos(p.theta) * p.w
 
         x_avg = x_sum / self.n_particles
         y_avg = y_sum / self.n_particles
-        theta_avg = atan2(theta_cos_sum, theta_sin_sum)
+        theta_avg = atan2(theta_sin_sum, theta_cos_sum)
 
-        translation = (x_avg, y_avg, 0)
-        rotation = tf.transformations.quaternion_from_euler(0, 0, theta_avg)
-        new_pose = self.transform_helper.convert_translation_rotation_to_pose(translation, rotation)
-        self.robot_pose = new_pose
+        mean_pose = Particle(x_avg, y_avg, theta_avg)
+
+        # translation = (x_avg, y_avg, 0)
+        # rotation = tf.transformations.quaternion_from_euler(0, 0, theta_avg)
+        # new_pose = self.transform_helper.convert_translation_rotation_to_pose(translation, rotation)
+        self.robot_pose = mean_pose.as_pose()
 
         self.transform_helper.fix_map_to_odom_transform(self.robot_pose, timestamp)
 
