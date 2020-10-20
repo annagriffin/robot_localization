@@ -91,6 +91,7 @@ class ParticleFilter:
         self.laser_max_distance = 2.0   # maximum penalty to assess in the likelihood field model
 
         # TODO: define additional constants if needed
+        self.sigma_update_scan = 1
 
         # Setup pubs and subs
 
@@ -180,7 +181,22 @@ class ParticleFilter:
     def update_particles_with_laser(self, msg):
         """ Updates the particle weights in response to the scan contained in the msg """
         # TODO: implement this
-        pass
+        scans = msg.ranges
+        for particle in self.particle_cloud:
+            total_prob = 1
+            for angle,scan in enumerate(scans):
+                if not math.isinf(scan):
+                    # convert scan measurement from view of the particle to map
+                    x_scan = particle.x + scan*math.cos(particle.theta + math.radians(angle))
+                    y_scan = particle.y + scan*math.sin(particle.theta + math.radians(angle))
+                    d = self.occupancy_field.get_closest_obstacle_distance(x_scan,y_scan)
+                    # Compute p(z^k_t | x_t, map)
+                    p_z = math.exp(-d**2/(2*self.sigma_update_scan**2))/(self.sigma_update_scan*math.sqrt(2*math.pi))
+                    # We sum the cube of the probability
+                    total_prob += p_z**3
+            particle.w = total_prob
+
+
 
     @staticmethod
     def draw_random_sample(choices, probabilities, n):
