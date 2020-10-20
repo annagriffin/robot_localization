@@ -15,12 +15,13 @@ from tf import TransformListener
 from tf import TransformBroadcaster
 from tf.transformations import euler_from_quaternion, rotation_matrix, quaternion_from_matrix
 from random import gauss
+import random
 
 import math
 import time
 
 import numpy as np
-from numpy.random import random_sample
+from numpy.random import random_sample, normal
 from sklearn.neighbors import NearestNeighbors
 from occupancy_field import OccupancyField
 from helper_functions import TFHelper
@@ -39,7 +40,7 @@ class Particle(object):
             x: the x-coordinate of the hypothesis relative to the map frame
             y: the y-coordinate of the hypothesis relative ot the map frame
             theta: the yaw of the hypothesis relative to the map frame
-            w: the particle weight (the class does not ensure that particle weights are normalized """ 
+            w: the particle weight (the class does not ensure that particle weights are normalized) """ 
         self.w = w
         self.theta = theta
         self.x = x
@@ -55,7 +56,7 @@ class Particle(object):
 class ParticleFilter:
     """ The class that represents a Particle Filter ROS Node
         Attributes list:
-            initialized: a Boolean flag to communicate to other class methods that initializaiton is complete
+            initialized: a Boolean flag to communicate to other class methods that initialization is complete
             base_frame: the name of the robot base coordinate frame (should be "base_link" for most robots)
             map_frame: the name of the map coordinate frame (should be "map" in most cases)
             odom_frame: the name of the odometry coordinate frame (should be "odom" in most cases)
@@ -90,6 +91,11 @@ class ParticleFilter:
 
         self.laser_max_distance = 2.0   # maximum penalty to assess in the likelihood field model
 
+        self.width = 10;
+        self.height = 10;
+
+        self.std_dev = 0.01
+        
         # TODO: define additional constants if needed
         self.sigma_update_scan = 1
 
@@ -133,7 +139,29 @@ class ParticleFilter:
 
         # TODO: assign the latest pose into self.robot_pose as a geometry_msgs.Pose object
         # just to get started we will fix the robot's pose to always be at the origin
-        self.robot_pose = Pose()
+        # self.robot_pose = Pose()
+
+        x_sum = 0
+        y_sum = 0
+        theta_sin_sum = 0
+        theta_cos_sum = 0
+
+        for p in self.particle_cloud:
+            x_sum += p.x * p.w
+            y_sum += p.y * p.w
+            theta_sin_sum = math.sin(p.theta) * p.w
+            theta_cos_sum = math.cos(p.theta) * p.w
+
+        x_avg = x_sum / self.n_particles
+        y_avg = y_sum / self.n_particles
+        theta_avg = atan2(theta_sin_sum, theta_cos_sum)
+
+        mean_pose = Particle(x_avg, y_avg, theta_avg)
+
+        # translation = (x_avg, y_avg, 0)
+        # rotation = tf.transformations.quaternion_from_euler(0, 0, theta_avg)
+        # new_pose = self.transform_helper.convert_translation_rotation_to_pose(translation, rotation)
+        self.robot_pose = mean_pose.as_pose()
 
         self.transform_helper.fix_map_to_odom_transform(self.robot_pose, timestamp)
 
@@ -161,12 +189,11 @@ class ParticleFilter:
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
-        # TODO: modify particles using delta
+        for p in self.particle_cloud:
+            p.x += (delta[0] + normal(-self.std_dev, self.std_dev))
+            p.y += (delta[1] + normal(-self.std_dev, self.std_dev))
+            p.theta += delta[2] + normal((-(math.radians(self.std_dev)), math.radians(self.std_dev))
 
-    def map_calc_range(self,x,y,theta):
-        """ Difficulty Level 3: implement a ray tracing likelihood model... Let me know if you are interested """
-        # TODO: nothing unless you want to try this alternate likelihood model
-        pass
 
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
@@ -228,15 +255,28 @@ class ParticleFilter:
         if xy_theta is None:
             xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose.pose)
         self.particle_cloud = []
-        # TODO create particles
+        for p in range(len(self.n_particles)):
+            x_val = random.uniform(-self.width, self.width)
+            y_val = random.uniform(-self.height, self.height)
+            t_val_deg = random.uniform(0,360)
+            t_val_rad = math.radians(t_val_deg)
+
+            p = Particle(x_val, y_val, t_val_rad)
+            self.particle_cloud.append(p)
+
 
         self.normalize_particles()
         self.update_robot_pose(timestamp)
 
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) """
-        # TODO: implement this
-        pass
+        total_weight = 0
+        for p in self.particle_cloud:
+            total_weight += p.w
+
+        for p in self.particle_cloud:
+            p.w = p.w / total_weight
+
 
     def publish_particles(self, msg):
         particles_conv = []
