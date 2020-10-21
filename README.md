@@ -20,6 +20,9 @@ The robot's LIDAR scan reading can be compared to the map to determine how close
 
 ## Implementation 
 
+![alt text](images/ParticleFilterReallyGoodAC109-1.gif "Figure 1")
+
+
 ### Particle Weight (SensorModel)
 The particle filter is able to represent un-uniformed distributions by using random sampling. In order to make these samples meaningful, they needed to be weighted according to the probability that they are an accurate representation of the true state. We chose to use a likelihood field model for this step of the process and leveraged the `OccupancyField` class to calculate the nearest obstacle. 
 
