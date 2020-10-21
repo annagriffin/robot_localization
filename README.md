@@ -20,12 +20,25 @@ The robot's LIDAR scan reading can be compared to the map to determine how close
 
 ## Implementation
 
+![alt text](images/ParticleFilterReallyGoodAC109-1.gif "Figure 1")
+
 ### Update Particle Weight (Sensor Model)
 The particle filter is able to represent uninformed distributions by using random sampling. In order to make these samples meaningful, they needed to be weighted according to the probability that they are an accurate representation of the true state. We chose to use a liklihood field model for this step of the process and leverage the `OccupancyField` class which is able to calculate the nearest obstacle.
 
 One thing that we took into account was measurement noise. There is a gaussian distribution that illustrates the likelihood between the given coordinates along with scan data and the nearest object on the map. Since the distribution is centered at zero, the closer it is to 0, the more likely it is that it is a match.
 
+Below is a sketch of a possible map of the robot's scan data and a representation of the likelihood model with the gaussian distributions of closest objects. 
 
+![](images/scandata.jpg)    |  ![](images/likelihoodmap.jpg)
+:-------------------------:|:-------------------------:
+Figure 1: Scan Data  | Figure 2: Likelihood Map
+<br>
+
+Take one particular scan for example (illustrated in Figure 1). This value that is returned is the distance from the robot to whatever is intercepting the laser scan at the given angle, an obstacle in our case. At the position of the end of the scan, we know there is an object because of how the LIDAR scan works. This point can be imposed within each particle's coordinate frame and then used to compare the measurement of the closest object. 
+
+In Figure 2, the darker the shading is, the farther away the point is from a known object. When the distance is as close to 0 as possible, we can conclude that the position is a relatively good match resulting in a higher probability that it is a match.
+
+The particle A in Figure 2 is in a particularly darkly shaded area because it is very close to an object that is known in the map. This particle would receive a higher probability since we'd expect an object to be there relative to the particle. In contrast, the point x distance away from particle B in Figure 2 is nowhere near an object in the map. This particle would have a very low weight since it is unlikely that if the robot was in that position it would read the scan value to true robot did.    
 
 
 ### Resampling Particles
@@ -45,7 +58,11 @@ Figure 5: Graphic Intuition of low variance resampling algorithm from Probabilis
 
 
 ### Update Particle Position with Motion Model
-The particle cloud is comprised of many hypotheses of the robot's true location. Since the robot is moving and each particle is a representation of a possible pose, the movement of the robot must be propagated to the estimates. The particles are able to copy the movement since the transformation is relative to a `\base_link` frame that each robot has which is aligned with its pose. This is an important step since each scan the robot takes will reveal additional information about its specific location which can only be accurately compared if the hypotheses imitate the same movement. If a particle happens to be exactly where the robot is, then its movements should mirror those of the true robot.
+The particle cloud is comprised of many hypotheses of the robot's true location. Since the robot is moving and each particle is a representation of a possible pose, the movement of the robot must be propagated to the estimates. The particles are able to copy the movement since the transformation is relative to a `\base_link` frame that each robot has which is aligned with its pose. This is an important step since each scan the robot takes will reveal additional information about its specific location which can only be accurately compared if the hypotheses imitate the same movement. If a particle happens to be exactly where the robot is, then its movements should mirror those of the true robot. We introduced some noise to these projections to account for drift in the wheel encoders and prevent the particles from getting stuck in the same position. 
+
+
+![alt text](images/movement.jpg "Figure 1")
+Figure 3: Updating each particle with robot's movement
 
 
 ## Improvements
