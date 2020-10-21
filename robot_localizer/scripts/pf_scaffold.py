@@ -91,12 +91,13 @@ class ParticleFilter:
 
         self.laser_max_distance = 2.0   # maximum penalty to assess in the likelihood field model
 
-        #self.radius = 2 # ac 109_1
-        self.radius = 1 # ac_109_2
+        self.radius = 2 # ac 109_1
+        #self.radius = 1 # ac_109_2
+
         self.num_best_particles = 8
 
         # standard deviation of random noise distribution (Gaussian) for updating particle with odom
-        self.sigma_random_noise_update_odom = 0.009
+        self.sigma_random_noise_update_odom = 0.008
 
         # standard deviation of p(z^k_t | x_t, map)
         self.sigma_hit_update_scan = 0.01
@@ -191,13 +192,12 @@ class ParticleFilter:
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
-        # Update the odom of the particles accordingly
+        #Update the odom of the particles accordingly
         d = math.sqrt(delta[0]**2 + delta[1]**2)
         for p in self.particle_cloud:
             p.x += d*math.cos(p.theta) + normal(0, self.sigma_random_noise_update_odom)
             p.y += d*math.sin(p.theta) + normal(0, self.sigma_random_noise_update_odom)
             p.theta += delta[2] + normal(0, self.sigma_random_noise_update_odom)
-
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
             The weights stored with each particle should define the probability that a particular
