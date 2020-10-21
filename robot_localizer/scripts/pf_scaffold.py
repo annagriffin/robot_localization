@@ -192,12 +192,13 @@ class ParticleFilter:
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
-        #Update the odom of the particles accordingly
+        # Update the odom of the particles accordingly
         d = math.sqrt(delta[0]**2 + delta[1]**2)
         for p in self.particle_cloud:
             p.x += d*math.cos(p.theta) + normal(0, self.sigma_random_noise_update_odom)
             p.y += d*math.sin(p.theta) + normal(0, self.sigma_random_noise_update_odom)
             p.theta += delta[2] + normal(0, self.sigma_random_noise_update_odom)
+
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
             The weights stored with each particle should define the probability that a particular
