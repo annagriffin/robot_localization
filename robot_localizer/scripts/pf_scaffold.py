@@ -84,20 +84,24 @@ class ParticleFilter:
         self.odom_frame = "odom"        # the name of the odometry coordinate frame
         self.scan_topic = "scan"        # the topic where we will get laser scans from 
 
-        self.n_particles = 300          # the number of particles to use
+        self.n_particles = 150          # the number of particles to use
 
         self.d_thresh = 0.2             # the amount of linear movement before performing an update
         self.a_thresh = math.pi/6       # the amount of angular movement before performing an update
 
         self.laser_max_distance = 2.0   # maximum penalty to assess in the likelihood field model
 
-        self.width = 10;
-        self.height = 10;
+        #self.radius = 2 # ac 109_1
+        self.radius = 1 # ac_109_2
+        self.num_best_particles = 8
 
-        self.std_dev = 0.01
-        
-        # TODO: define additional constants if needed
-        self.sigma_update_scan = 1
+        # standard deviation of random noise distribution (Gaussian) for updating particle with odom
+        self.sigma_random_noise_update_odom = 0.009
+
+        # standard deviation of p(z^k_t | x_t, map)
+        self.sigma_hit_update_scan = 0.01
+        self.z_hit = 1
+        self.z_rand = 0
 
         # Setup pubs and subs
 
@@ -136,31 +140,29 @@ class ParticleFilter:
         """
         # first make sure that the particle weights are normalized
         self.normalize_particles()
-
-        # TODO: assign the latest pose into self.robot_pose as a geometry_msgs.Pose object
         # just to get started we will fix the robot's pose to always be at the origin
         # self.robot_pose = Pose()
 
         x_sum = 0
         y_sum = 0
-        theta_sin_sum = 0
-        theta_cos_sum = 0
+        theta_sum = 0
 
-        for p in self.particle_cloud:
-            x_sum += p.x * p.w
-            y_sum += p.y * p.w
-            theta_sin_sum = math.sin(p.theta) * p.w
-            theta_cos_sum = math.cos(p.theta) * p.w
+        # Take the average of the best particles to be the robot's pose estimate
+        particles_most_likely = sorted(self.particle_cloud, key=lambda x: x.w, reverse=True)
+        for p in particles_most_likely[0:self.num_best_particles]:
+            x_sum += p.x
+            y_sum += p.y
+            theta_sum += p.theta
+            # should not do this, for some reason messed up the yaw
+            # theta_sin_sum += math.sin(p.theta)
+            # theta_cos_sum += math.cos(p.theta)
 
-        x_avg = x_sum / self.n_particles
-        y_avg = y_sum / self.n_particles
-        theta_avg = atan2(theta_sin_sum, theta_cos_sum)
+        x_avg = x_sum / self.num_best_particles
+        y_avg = y_sum / self.num_best_particles
+        theta_avg = theta_sum / self.num_best_particles
+        # theta_avg = math.atan2(theta_sin_sum, theta_cos_sum) / self.num_best_particles (this is bad)
 
         mean_pose = Particle(x_avg, y_avg, theta_avg)
-
-        # translation = (x_avg, y_avg, 0)
-        # rotation = tf.transformations.quaternion_from_euler(0, 0, theta_avg)
-        # new_pose = self.transform_helper.convert_translation_rotation_to_pose(translation, rotation)
         self.robot_pose = mean_pose.as_pose()
 
         self.transform_helper.fix_map_to_odom_transform(self.robot_pose, timestamp)
@@ -189,11 +191,12 @@ class ParticleFilter:
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
+        # Update the odom of the particles accordingly
+        d = math.sqrt(delta[0]**2 + delta[1]**2)
         for p in self.particle_cloud:
-            p.x += (delta[0] + normal(-self.std_dev, self.std_dev))
-            p.y += (delta[1] + normal(-self.std_dev, self.std_dev))
-            p.theta += delta[2] + normal((-(math.radians(self.std_dev)), math.radians(self.std_dev))
-
+            p.x += d*math.cos(p.theta) + normal(0, self.sigma_random_noise_update_odom)
+            p.y += d*math.sin(p.theta) + normal(0, self.sigma_random_noise_update_odom)
+            p.theta += delta[2] + normal(0, self.sigma_random_noise_update_odom)
 
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
@@ -203,11 +206,27 @@ class ParticleFilter:
         """
         # make sure the distribution is normalized
         self.normalize_particles()
-        # TODO: fill out the rest of the implementation
+        # Sort the particles first
+        particles_most_likely = sorted(self.particle_cloud, key=lambda x: x.w, reverse=True)
+        new_particle_cloud = []
+        # Low variance resampler from Probabilistic Robotics p87
+        count_inv = 1.0 / self.n_particles  # the case when particles have equal weights
+        r_num = random.uniform(0, 1) * count_inv # draw a number in the interval [0,1/M]
+        for m in range(self.n_particles):
+            # Repeatedly add fixed amount to 1/M to random number r where 1/M represents the case where particles have
+            # equal weights
+            u = r_num + m*count_inv
+            c = 0  # cumulative weights of particles
+            for particle in particles_most_likely:
+                c += particle.w
+                # Add the first particle i such that the sum of weights of all particles from 0->i >= u
+                if c >= u:
+                    new_particle_cloud.append(deepcopy(particle))
+                    break
+        self.particle_cloud = new_particle_cloud
 
     def update_particles_with_laser(self, msg):
         """ Updates the particle weights in response to the scan contained in the msg """
-        # TODO: implement this
         scans = msg.ranges
         for particle in self.particle_cloud:
             total_prob = 1
@@ -218,12 +237,17 @@ class ParticleFilter:
                     y_scan = particle.y + scan*math.sin(particle.theta + math.radians(angle))
                     d = self.occupancy_field.get_closest_obstacle_distance(x_scan,y_scan)
                     # Compute p(z^k_t | x_t, map)
-                    p_z = math.exp(-d**2/(2*self.sigma_update_scan**2))/(self.sigma_update_scan*math.sqrt(2*math.pi))
+                    p_z_hit = self.z_hit*math.exp(-d**2/(2*(self.sigma_hit_update_scan**2)))/(self.sigma_hit_update_scan*math.sqrt(2*math.pi))
+                    p_z_rand = self.z_rand/self.laser_max_distance # z_random / z_max Probabilistic Robotics p143
+                    p_z = p_z_hit + p_z_rand
                     # We sum the cube of the probability
-                    total_prob += p_z**3
+                    total_prob += p_z**6
+
+            # total_prob = total_prob/len(msg.ranges) # It works better not to average -> converge faster
+            # Reassign weight with newly computed  p(z_t | x_t, map)
             particle.w = total_prob
 
-
+        self.normalize_particles()
 
     @staticmethod
     def draw_random_sample(choices, probabilities, n):
@@ -255,15 +279,15 @@ class ParticleFilter:
         if xy_theta is None:
             xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose.pose)
         self.particle_cloud = []
-        for p in range(len(self.n_particles)):
-            x_val = random.uniform(-self.width, self.width)
-            y_val = random.uniform(-self.height, self.height)
-            t_val_deg = random.uniform(0,360)
-            t_val_rad = math.radians(t_val_deg)
-
-            p = Particle(x_val, y_val, t_val_rad)
-            self.particle_cloud.append(p)
-
+        self.particle_cloud.append(Particle(xy_theta[0], xy_theta[1], xy_theta[2]))
+        for p in range(self.n_particles-1):
+            p_yaw = random.uniform(0, 2*math.pi)
+            radius = random.uniform(0, 1) * self.radius
+            theta_facing = random.uniform(0, 2*math.pi)
+            # Forward x axis of Neato is x
+            p_x = radius * math.sin(theta_facing) + xy_theta[0]
+            p_y = radius * math.cos(theta_facing) + xy_theta[1]
+            self.particle_cloud.append(Particle(p_x, p_y, p_yaw))
 
         self.normalize_particles()
         self.update_robot_pose(timestamp)
@@ -276,7 +300,6 @@ class ParticleFilter:
 
         for p in self.particle_cloud:
             p.w = p.w / total_weight
-
 
     def publish_particles(self, msg):
         particles_conv = []
