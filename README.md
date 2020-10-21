@@ -29,8 +29,17 @@ One thing that we took into account was measurement noise. There is a gaussian d
 
 
 ### Resampling Particles
+For resampling the particles for the next time step, we applied the low variance resampling algorithm introduced in Probabilistic Robotics p87 instead of randomly choosing the particles based on the probability distribution defined by the particle weights.
+
+The intuition of the algorithm is for a given step m where 0 <= m < total number of particles, we pick the first particle such that the accumulated weighted of all m particles from the first one is greater or equal to some number u where u is approximately m*1/total number of particles. This relationship can be explained by the the formula below:
+
+![alt text](./images/low_variance_sampler_equation.png "Figure 6")
+Figure 6: Particle selection step of low variance resampling algorithm from Probabilistic Robotics p87.i represents the index of the particle being chosen and u is equal to a random number r between 0 and 1/total number of particles plus m*1/total number of particles. The image below
+
 ![alt text](./images/low_variance_sampler.png "Figure 5")
-Figure 5: Principleofthelowvarianceresamplingprocedure
+Figure 5: Graphic Intuition of low variance resampling algorithm from Probabilistic Robotics p87.
+
+
 
 
 
