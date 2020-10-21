@@ -14,13 +14,18 @@ For this project, our goal was to create our own particle filter algorithm to ap
 ## Particle Filter
 The particle filter algorithm we designed is comprised of a few steps, some of which are repeated to narrow down the estimate, honing in on the true position of the robot. 
 
+<<<<<<< HEAD
 First we create a particle cloud. Theses particles are positioned randomly and then normalized. Since there is no previous information about the robot's location initially, the particles are distributed randomly and all of the particles have equal weights. 
+=======
+First we create a particle cloud. Theses particles are positioned randomly on the map and then normalized. Since there is no previous information about the robot's location initially, the particles are distributed randomly and all of the particles have equal weights. 
+>>>>>>> 062f289d765a0a1260a92b808d313ca7bda85d23
 
 The robot's LIDAR scan reading can be compared to the map to determine how close of a match they are by comparing the scan value to the nearest obstacle in the map. The particles are weighted depending on how much variance exists between the scan and map data. This process helps inform the future particle cloud predictions when resampling because the probability of each particle is proportional to its weight. Using this information, the robot's pose is updated and then the algorithm returns to reweighing the new particles based on the laser scan of the updated robot. 
 
 ## Implementation 
 
 ### Particle Weight (SensorModel)
+<<<<<<< HEAD
 The particle filter is able to represent un-uniformed distributions by using random sampling. In order to make these samples meaningful, they needed to be weighted according to the probability that they are an accurate representation of the true state. We chose to use a likelihood field model for this step of the process and leveraged the `OccupancyField` class to calculate the nearest obstacle. 
 
 With the likelihood field, we are able to quantify measurement noise which is needed to weight the particles. The probability that a particle is has the same pose as the robot is determined by using the robot's scanned data and how likely each particle's distance to the nearest object if it were to be at the position of the scan. The likelihood of the nearest object is represented by a gaussian distribution that is centered at zero. Therefore, the closer the nearest object measurement for each particle is, the better the match it is. 
@@ -37,6 +42,12 @@ Take one particular scan for example (illustrated in Figure 1). This value that 
 In Figure 2, the darker the shading is, the farther away the point is from a known object. When the distance is as close to 0 as possible, we can conclude that the position is a relatively good match resulting in a higher probability that it is a match.
 
 The particle A in Figure 2 is in a particularly darkly shaded area because it is very close to an object that is known in the map. This particle would receive a higher probability since we'd expect an object to be there relative to the particle. In contrast, the point x distance away from particle B in Figure 2 is nowhere near an object in the map. This particle would have a very low weight since it is unlikely that if the robot was in that position it would read the scan value to true robot did.    
+=======
+The particle filter is able to represent uninformed distributions by using random sampling. In order to make these samples meaningful, they needed to be weighted according to the probability that they are an accurate representation of the true state. We chose to use a liklihood field model for this step of the process and leverage the `OccupancyField` class which is able to calculate the nearest obstacle. 
+
+One thing that we took into account was measurement noise. There is a gaussian distribution that illustrates the likelihood between the given coordinates along with scan data and the nearest object on the map. Since the distribution is centered at zero, the closer it is to 0, the more likely it is that it is a match. 
+
+>>>>>>> 062f289d765a0a1260a92b808d313ca7bda85d23
 
 
 
@@ -46,6 +57,7 @@ The particle A in Figure 2 is in a particularly darkly shaded area because it is
 
 
 
+<<<<<<< HEAD
 ### MotionModel 
 The particle cloud is comprised of many hypotheses of the robot's true location. Since the robot is moving and each particle is a representation of a possible pose, the movement of the robot must be propagated to the estimates. The particles are able to copy the movement since the transformation is relative to a `\base_link` frame that each robot has which is aligned with its pose. This is an important step since each scan the robot takes will reveal additional information about its specific location which can only be accurately compared if the hypotheses imitate the same movement. If a particle happens to be exactly where the robot is, then its movements should mirror those of the true robot. We introduced some noise to these projections to account for drift in the wheel encoders and prevent the particles from getting stuck in the same position. 
 
@@ -69,13 +81,21 @@ At the start, we initialized the particles randomly around the map. This method 
 
 ### Updating Particles
 
+=======
+### MotionModel (update_particles_with_odom)
+The particle cloud is comprised of many hypotheses of the robot's true location. Since the robot is moving and each particle is a representation of a possible pose, the movement of the robot must be propagated to the estimates. The particles are able to copy the movement since the transformation is relative to a `\base_link` frame that each robot has which is aligned with its pose. This is an important step since each scan the robot takes will reveal additional information about its specific location which can only be accurately compared if the hypotheses imitate the same movement. If a particle happens to be exactly where the robot is, then its movements should mirror those of the true robot. 
+>>>>>>> 062f289d765a0a1260a92b808d313ca7bda85d23
 
 
 ## Improvements
 One opportunity for improvement for this project is developing some metric to measure the accuracy of each successive guess. At the moment, we assume that our process of reweighing and resampling improves the pose estimate of the robot. However, we do not check if it is in fact closer to the true pose nor do we have a way to measure to what degree the new cloud has improved our estimate. We did a lot of tweaking and testing but if we calculated those metrics in some way we could determine how much of an effect a particular tweak has on the estimated pose. 
 
 
+<<<<<<< HEAD
 With additional time, we could look more into handling objects that are not stationary. We account for this a little bit when we weight the particles. The scan data could be intercepted by an object our map didn't account for which would throw off a comparison of the date to the map since there is a discrepancy between what is known and expected of the map and what the robot's laser scan values. Since we are using a robotic vacuum, one obvious application of robot localization is mapping a house to ensure that entire floor surfaces have been cleaned. While some things like walls, couches, staircases, doorways, etc. are stationary and therefore mostly likely accounted for on the map, many objects in households move around and not included in the map. It would be an interesting extension to explore settings that have both stationary and movable objects. 
+=======
+With additional time, we could look into handling objects that are not stationary. Since we are using a robotic vacuum, one obvious application of robot localization is mapping a house to ensure that entire floor surfaces have been cleaned. While some things like walls, couches, staircases, doorways, etc. are stationary and therefore mostly likely accounted for on the map, many objects in households move around and not included in the map. It would be an interesting extension to explore settings that have both stationary and movable objects. 
+>>>>>>> 062f289d765a0a1260a92b808d313ca7bda85d23
 
 
 ## Takeaways
