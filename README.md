@@ -29,14 +29,14 @@ The particle filter is able to represent uninformed distributions by using rando
 
 One thing that we took into account was measurement noise. There is a gaussian distribution that illustrates the likelihood between the given coordinates along with scan data and the nearest object on the map. Since the distribution is centered at zero, the closer it is to 0, the more likely it is that it is a match.
 
-Below is a sketch of a possible map of the robot's scan data and a representation of the likelihood model with the gaussian distributions of closest objects. 
+Below is a sketch of a possible map of the robot's scan data and a representation of the likelihood model with the gaussian distributions of closest objects.
 
 ![](images/scandata.jpg)    |  ![](images/likelihoodmap.jpg)
 :-------------------------:|:-------------------------:
 Figure 1: Scan Data  | Figure 2: Likelihood Map
 <br>
 
-Take one particular scan for example (illustrated in Figure 1). This value that is returned is the distance from the robot to whatever is intercepting the laser scan at the given angle, an obstacle in our case. At the position of the end of the scan, we know there is an object because of how the LIDAR scan works. This point can be imposed within each particle's coordinate frame and then used to compare the measurement of the closest object. 
+Take one particular scan for example (illustrated in Figure 1). This value that is returned is the distance from the robot to whatever is intercepting the laser scan at the given angle, an obstacle in our case. At the position of the end of the scan, we know there is an object because of how the LIDAR scan works. This point can be imposed within each particle's coordinate frame and then used to compare the measurement of the closest object.
 
 In Figure 2, the darker the shading is, the farther away the point is from a known object. When the distance is as close to 0 as possible, we can conclude that the position is a relatively good match resulting in a higher probability that it is a match.
 
@@ -44,23 +44,30 @@ The particle A in Figure 2 is in a particularly darkly shaded area because it is
 
 
 ### Resampling Particles
-For resampling the particles for the next time step, we applied the low variance resampling algorithm introduced in Probabilistic Robotics p87 instead of randomly choosing the particles based on the probability distribution defined by the particle weights.
+For resampling the particles for the next time step, we applied the low variance resampling algorithm introduced in Probabilistic Robotics p87 instead of randomly choosing the particles based on the probability distribution defined by the particle weights. The motivation for us to use this algorithm is that the resampling step reduces the diversity in the particle population. One scenario this would be useful is when the Neato does not move much, and the environment does not really change, what we want in that case is to maintain the original probability distribution of the particles instead of randomly resample based o the probability of each particle. Randomly resample would make us lose particles of low weight and get more concentrated particles of higher weight even though when the surrounding of the robot did not really change much. The particles tend to be more easily to be stuck. The error introduced by this randomness increases the variance of the particle set as an estimator of the true belief while reducing the variance of the particle set.
 
-The intuition of the algorithm is for a given step m where 0 <= m < total number of particles, we pick the first particle such that the accumulated weighted of all m particles from the first one is greater or equal to some number u where u is approximately m*1/total number of particles. This relationship can be explained by the the formula below:
+The intuition of the algorithm is for a given step m where 0 <= m < total number of particles, we pick the first particle such that the accumulated weighted of all m particles from the first one is greater or equal to some number u where u is approximately m/total number of particles. This relationship can be explained by the the formula below:
 
-![alt text](./images/low_variance_sampler_equation.png "Figure 6")
-Figure 6: Particle selection step of low variance resampling algorithm from Probabilistic Robotics p87.i represents the index of the particle being chosen and u is equal to a random number r between 0 and 1/total number of particles plus m*1/total number of particles. The image below
+![alt text](./images/low_variance_sampler_equation.png "Figure 3")
+Figure 3: Particle selection step of low variance resampling algorithm from Probabilistic Robotics p87.i represents the index of the particle being chosen and u is equal to a random number r between 0 and 1/M(total number of particles) plus m*1/total number of particles.
 
-![alt text](./images/low_variance_sampler.png "Figure 5")
-Figure 5: Graphic Intuition of low variance resampling algorithm from Probabilistic Robotics p87.
+The image below illustrates each iteration of picking a particle. For each step m, we add an additional 1/M(total number of particles) to u which corresponds to the case where all the particles have equal weights. In this case, we still prioritize resampling particles with larger weights but the process is deterministic and we avoid error introduced by the randomness of the resampler and keep the variance of the particle set as an estimator of the true belief low.
 
+![alt text](./images/low_variance_sampler.png "Figure 4")
+
+Figure 4: Graphic Intuition of low variance resampling algorithm from Probabilistic Robotics p87. The size of each bin corresponds to the weight of the particle, particles with weight much higher than 1/M will definitely be included in the resampled set.
+
+Another advantage of using the low variance resampler is that if all samples have the same weights, the resampled set is the same and we do not lose any samples.
+
+#### Design Decisions from Our Implementation
+While testing the resampler, we figured the particles converges faster if we sort all particles in descending order of weights before resampling. This increases the efficiency of the
 
 
 
 
 
 ### Update Particle Position with Motion Model
-The particle cloud is comprised of many hypotheses of the robot's true location. Since the robot is moving and each particle is a representation of a possible pose, the movement of the robot must be propagated to the estimates. The particles are able to copy the movement since the transformation is relative to a `\base_link` frame that each robot has which is aligned with its pose. This is an important step since each scan the robot takes will reveal additional information about its specific location which can only be accurately compared if the hypotheses imitate the same movement. If a particle happens to be exactly where the robot is, then its movements should mirror those of the true robot. We introduced some noise to these projections to account for drift in the wheel encoders and prevent the particles from getting stuck in the same position. 
+The particle cloud is comprised of many hypotheses of the robot's true location. Since the robot is moving and each particle is a representation of a possible pose, the movement of the robot must be propagated to the estimates. The particles are able to copy the movement since the transformation is relative to a `\base_link` frame that each robot has which is aligned with its pose. This is an important step since each scan the robot takes will reveal additional information about its specific location which can only be accurately compared if the hypotheses imitate the same movement. If a particle happens to be exactly where the robot is, then its movements should mirror those of the true robot. We introduced some noise to these projections to account for drift in the wheel encoders and prevent the particles from getting stuck in the same position.
 
 
 ![alt text](images/movement.jpg "Figure 1")

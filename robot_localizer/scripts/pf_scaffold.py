@@ -91,16 +91,17 @@ class ParticleFilter:
 
         self.laser_max_distance = 2.0   # maximum penalty to assess in the likelihood field model
 
-        self.radius = 2 # ac 109_1
+        self.radius = 2  # ac 109_1
         #self.radius = 1 # ac_109_2
 
-        self.num_best_particles = 8
+        self.num_best_particles = 7
 
         # standard deviation of random noise distribution (Gaussian) for updating particle with odom
+        # self.sigma_random_noise_update_odom = 0.01 # parameter for trying to not require a good initial estimate
         self.sigma_random_noise_update_odom = 0.008
 
         # standard deviation of p(z^k_t | x_t, map)
-        self.sigma_hit_update_scan = 0.01
+        self.sigma_hit_update_scan = 0.05
         self.z_hit = 1
         self.z_rand = 0
 
@@ -242,7 +243,8 @@ class ParticleFilter:
                     p_z_rand = self.z_rand/self.laser_max_distance # z_random / z_max Probabilistic Robotics p143
                     p_z = p_z_hit + p_z_rand
                     # We sum the cube of the probability
-                    total_prob += p_z**6
+                    # total_prob += p_z ** 3 # trying to make the model not require a good initial estimate
+                    total_prob += p_z ** 6
 
             # total_prob = total_prob/len(msg.ranges) # It works better not to average -> converge faster
             # Reassign weight with newly computed  p(z_t | x_t, map)
