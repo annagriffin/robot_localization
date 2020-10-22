@@ -20,9 +20,18 @@ The robot's LIDAR scan reading can be compared to the map to determine how close
 
 ## Implementation
 
-![alt text](images/ParticleFilterReallyGoodAC109-1.gif "demonstration")
+![alt text](images/ParticleFilterReallyGoodAC109-1.gif "AC109 1")
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/gIMAhhX1jnE" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+[AC109 1 full video](https://youtu.be/IlxChRHc4kA)
+
+![](images/ParticleFilterReallyGoodAC109-2(1).gif)    |  ![](images/ParticleFilterReallyGoodAC109-2(2).gif)
+:-------------------------:|:-------------------------:
+Fist half  |  second half
+
+[AC109 2 full video](https://youtu.be/gIMAhhX1jnE) 
+
+> file was too large to convert and upload as one file
+
 
 ### Update Particle Weight (Sensor Model)
 The particle filter is able to represent uninformed distributions by using random sampling. In order to make these samples meaningful, they needed to be weighted according to the probability that they are an accurate representation of the true state. We chose to use a liklihood field model for this step of the process and leverage the `OccupancyField` class which is able to calculate the nearest obstacle.
@@ -63,9 +72,6 @@ Another advantage of using the low variance resampler is that if all samples hav
 While testing the resampler, we figured the particles converges faster if we sort all particles in descending order of weights before resampling. This increases the efficiency of the
 
 
-
-
-
 ### Update Particle Position with Motion Model
 The particle cloud is comprised of many hypotheses of the robot's true location. Since the robot is moving and each particle is a representation of a possible pose, the movement of the robot must be propagated to the estimates. The particles are able to copy the movement since the transformation is relative to a `\base_link` frame that each robot has which is aligned with its pose. This is an important step since each scan the robot takes will reveal additional information about its specific location which can only be accurately compared if the hypotheses imitate the same movement. If a particle happens to be exactly where the robot is, then its movements should mirror those of the true robot. We introduced some noise to these projections to account for drift in the wheel encoders and prevent the particles from getting stuck in the same position.
 
@@ -74,11 +80,32 @@ The particle cloud is comprised of many hypotheses of the robot's true location.
 Figure 3: Updating each particle with robot's movement
 
 
+
+## Design Decisions
+
+### Random Noise When Updating Odom
+Since the particles are estimates of the robot's true pose, they must be updated to mimic the movement of the robot as it is navigating through the environment. As the robot moves, the transformations get propagated to each particle with a certain amount of noise factored in to account for drift of the wheel encoders. At first, we added random noise that was chosen from a normal distribution that had a standard deviation of 0.01. This however turned out to be too large making our algorithm suspectable to false positives. Reducing the value to 0.008 gave us the best results after playing around with a variety of nearby values.
+
+### Particle Cloud Initialization Radius
+At the start, we initialized the particles randomly around the map. This method was not a very robust or accurate way to go about making theses initial predictions. Instead we improved this step of the process by containing the randomize particles within a circle with a specified radius centered at the robot. This had a tremendous affect on the performance of the filter which also makes sense with our logic. Picture a room that is rectangular without many other features. It would be more difficult to distinguish one corner from the other. In this case, a smaller radius about the robot is a better fit for the situation. In contrast, when the space is feature rich, the radius can be larger since the scan data will most likely be more unique and easier to identify or eliminate. 
+
+
+
+### Sorting Particles
+Compared to the first iteration of our `update_robot_pose()` function, our current implementation incorporates sorting to amplify the close matches. We approached this part of the algorithm by calculating an weighted average of the particles. The particles that had higher probability had higher weight which would be reflected in the average. We modified this method by first sorting the particles by weight and only took the average of the best ones. This we saw had an effect on the accuracy of the estimates because there was even more emphasis put on the highly probable particles while at the same time the lower ones were disregarded. 
+
+
+
+### Updating Particles
+In our algorithm, we assign weights to the particles by comparing the scan data to the closest obstacle distance based on the occupancy field. The closer this value is to 0, the higher the probability of it being a match. We originally multiplied the values but we were not seeing very good results. After tweaking and testing, we observed that adding the probabilities from each scan made more sense. Starting with adding the square of the `p_z` to the `total_prob` sum for each particle, we experimented with raising it to different powers to determine how it effect its performance. 
+
+
+
 ## Improvements
 One opportunity for improvement for this project is developing some metric to measure the accuracy of each successive guess. At the moment, we assume that our process of reweighing and resampling improves the pose estimate of the robot. However, we do not check if it is in fact closer to the true pose nor do we have a way to measure to what degree the new cloud has improved our estimate. We did a lot of tweaking and testing but if we calculated those metrics in some way we could determine how much of an effect a particular tweak has on the estimated pose.
 
 
-With additional time, we could look into handling objects that are not stationary. Since we are using a robotic vacuum, one obvious application of robot localization is mapping a house to ensure that entire floor surfaces have been cleaned. While some things like walls, couches, staircases, doorways, etc. are stationary and therefore mostly likely accounted for on the map, many objects in households move around and not included in the map. It would be an interesting extension to explore settings that have both stationary and movable objects.
+With additional time, we could look more into handling objects that are not stationary. Since we are using a robotic vacuum, one obvious application of robot localization is mapping a house to ensure that entire floor surfaces have been cleaned. While some things like walls, couches, staircases, doorways, etc. are stationary and therefore mostly likely accounted for on the map, many objects in households move around and not included in the map. It would be an interesting extension to explore settings and fine tune detection with movable objects. 
 
 
 ## Takeaways
