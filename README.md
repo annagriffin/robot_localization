@@ -22,7 +22,15 @@ The robot's LIDAR scan reading can be compared to the map to determine how close
 
 ![alt text](images/ParticleFilterReallyGoodAC109-1.gif "AC109 1")
 
-[AC109 2](https://youtu.be/gIMAhhX1jnE)
+[AC109 1 full video](https://youtu.be/IlxChRHc4kA)
+
+![](images/ParticleFilterReallyGoodAC109-2(1).gif)    |  ![](images/ParticleFilterReallyGoodAC109-2(2).gif)
+:-------------------------:|:-------------------------:
+Fist half  |  second half
+
+[AC109 2 full video](https://youtu.be/gIMAhhX1jnE) 
+
+> file was too large to convert and upload as one file
 
 
 ### Update Particle Weight (Sensor Model)
