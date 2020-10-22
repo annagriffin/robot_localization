@@ -241,7 +241,7 @@ class ParticleFilter:
                     p_z_hit = self.z_hit*math.exp(-d**2/(2*(self.sigma_hit_update_scan**2)))/(self.sigma_hit_update_scan*math.sqrt(2*math.pi))
                     p_z_rand = self.z_rand/self.laser_max_distance # z_random / z_max Probabilistic Robotics p143
                     p_z = p_z_hit + p_z_rand
-                    # We sum the cube of the probability
+                    # We sum the the probability raised to the 6th power
                     total_prob += p_z**6
 
             # total_prob = total_prob/len(msg.ranges) # It works better not to average -> converge faster
