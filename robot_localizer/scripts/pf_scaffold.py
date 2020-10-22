@@ -94,14 +94,16 @@ class ParticleFilter:
         self.radius = 2  # ac 109_1
         #self.radius = 1 # ac_109_2
 
-        self.num_best_particles = 7
+        self.num_best_particles = 5 # ac 109_1
+        # self.num_best_particles = 8 # ac 109_2
 
         # standard deviation of random noise distribution (Gaussian) for updating particle with odom
         # self.sigma_random_noise_update_odom = 0.01 # parameter for trying to not require a good initial estimate
         self.sigma_random_noise_update_odom = 0.008
 
         # standard deviation of p(z^k_t | x_t, map)
-        self.sigma_hit_update_scan = 0.05
+        self.sigma_hit_update_scan = 0.01
+        #self.sigma_hit_update_scan = 0.05 # parameter for trying to not require a good initial estimate (did not work)
         self.z_hit = 1
         self.z_rand = 0
 
@@ -152,7 +154,7 @@ class ParticleFilter:
         # Take the average of the best particles to be the robot's pose estimate
         particles_most_likely = sorted(self.particle_cloud, key=lambda x: x.w, reverse=True)
         for p in particles_most_likely[0:self.num_best_particles]:
-            x_sum += p.x
+            x_sum += p.x 
             y_sum += p.y
             theta_sum += p.theta
             # should not do this, for some reason messed up the yaw
